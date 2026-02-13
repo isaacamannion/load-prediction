@@ -2,6 +2,9 @@
 
 A machine learning system that predicts household energy consumption using Home Assistant historical data. Uses Quantile Regression for conservative forecasting and optional Neural Networks for comparison.
 
+<img width="2377" height="882" alt="energy_prediction_overview" src="https://github.com/user-attachments/assets/91da58e8-15bf-4245-8f1a-6f9a56c2de75" />
+
+
 ## Features
 
 - 🎯 **Quantile Regression**: Conservative predictions that avoid underestimation
