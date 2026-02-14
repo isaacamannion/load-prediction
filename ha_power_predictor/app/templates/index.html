@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HA Power Predictor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .header h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #666;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .card h2 {
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+        
+        .config-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .config-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .config-item label {
+            font-weight: 600;
+            color: #555;
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        
+        .config-item .value {
+            color: #333;
+            font-size: 16px;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .status {
+            padding: 10px 20px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .status.info {
+            background: #cfe2ff;
+            color: #084298;
+            border: 1px solid #b6d4fe;
+        }
+        
+        .status.success {
+            background: #d1e7dd;
+            color: #0f5132;
+            border: 1px solid #badbcc;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #842029;
+            border: 1px solid #f5c2c7;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .metric-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .metric-card .label {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 8px;
+        }
+        
+        .metric-card .value {
+            font-size: 32px;
+            font-weight: 700;
+        }
+        
+        .chart-container {
+            height: 400px;
+            margin-top: 20px;
+        }
+        
+        #loadingSpinner {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .prediction-table {
+            overflow-x: auto;
+            margin-top: 20px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        tr:hover {
+            background: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚡ HA Power Predictor</h1>
+            <p>Predict future power consumption using quantile regression</p>
+        </div>
+        
+        <div class="card">
+            <h2>Configuration</h2>
+            <div class="config-grid" id="configGrid">
+                <!-- Configuration items will be loaded here -->
+            </div>
+            <button class="btn" id="runPredictionBtn" onclick="runPrediction()">
+                🚀 Run Prediction
+            </button>
+        </div>
+        
+        <div id="loadingSpinner">
+            <div class="spinner"></div>
+            <p>Training model and generating predictions...</p>
+        </div>
+        
+        <div id="statusMessage" class="status"></div>
+        
+        <div id="resultsContainer" style="display: none;">
+            <div class="card">
+                <h2>Model Performance</h2>
+                <div class="metrics-grid" id="metricsGrid">
+                    <!-- Metrics will be loaded here -->
+                </div>
+                
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 20px;">
+                    <h3 style="margin-bottom: 10px; color: #555;">Model Information</h3>
+                    <div id="modelInfo"></div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2>Predictions Chart</h2>
+                <div class="chart-container">
+                    <canvas id="predictionChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2>Next 48 Hours Predictions</h2>
+                <div class="prediction-table">
+                    <table id="predictionTable">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Predicted (kW)</th>
+                                <th>Actual (kW)</th>
+                                <th>Difference</th>
+                            </tr>
+                        </thead>
+                        <tbody id="predictionTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+        let chart = null;
+        
+        // Load configuration on page load
+        window.addEventListener('load', loadConfiguration);
+        
+        async function loadConfiguration() {
+            try {
+                const response = await fetch('/api/config');
+                const config = await response.json();
+                
+                const configGrid = document.getElementById('configGrid');
+                configGrid.innerHTML = `
+                    <div class="config-item">
+                        <label>Power Entity</label>
+                        <div class="value">${config.power_entity}</div>
+                    </div>
+                    <div class="config-item">
+                        <label>Temperature Entity</label>
+                        <div class="value">${config.temperature_entity}</div>
+                    </div>
+                    <div class="config-item">
+                        <label>History Days</label>
+                        <div class="value">${config.history_days} days</div>
+                    </div>
+                    <div class="config-item">
+                        <label>Bin Size</label>
+                        <div class="value">${config.bin_size_minutes} minutes</div>
+                    </div>
+                    <div class="config-item">
+                        <label>Power Lags</label>
+                        <div class="value">${config.n_power_lags}</div>
+                    </div>
+                    <div class="config-item">
+                        <label>Temperature Lags</label>
+                        <div class="value">${config.n_temp_lags}</div>
+                    </div>
+                    <div class="config-item">
+                        <label>Train %</label>
+                        <div class="value">${config.train_percentage}%</div>
+                    </div>
+                    <div class="config-item">
+                        <label>Quantile</label>
+                        <div class="value">${(config.quantile * 100).toFixed0()}th percentile</div>
+                    </div>
+                    <div class="config-item">
+                        <label>Dynamic Quantile</label>
+                        <div class="value">${config.use_dynamic_quantile ? 'Enabled' : 'Disabled'}</div>
+                    </div>
+                    ${config.use_dynamic_quantile ? `
+                    <div class="config-item">
+                        <label>Peak Hours</label>
+                        <div class="value">${config.peak_start}:00 - ${config.peak_end}:00</div>
+                    </div>
+                    <div class="config-item">
+                        <label>Peak Quantile</label>
+                        <div class="value">${(config.peak_quantile * 100).toFixed(0)}th percentile</div>
+                    </div>
+                    <div class="config-item">
+                        <label>Off-Peak Quantile</label>
+                        <div class="value">${(config.offpeak_quantile * 100).toFixed(0)}th percentile</div>
+                    </div>
+                    ` : ''}
+                `;
+            } catch (error) {
+                showStatus('Failed to load configuration: ' + error.message, 'error');
+            }
+        }
+        
+        async function runPrediction() {
+            const btn = document.getElementById('runPredictionBtn');
+            const spinner = document.getElementById('loadingSpinner');
+            const results = document.getElementById('resultsContainer');
+            
+            btn.disabled = true;
+            spinner.style.display = 'block';
+            results.style.display = 'none';
+            hideStatus();
+            
+            try {
+                const response = await fetch('/api/predict', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Prediction failed');
+                }
+                
+                const data = await response.json();
+                displayResults(data);
+                showStatus('✅ Prediction completed successfully! Sensors published to Home Assistant.', 'success');
+                
+            } catch (error) {
+                showStatus('❌ ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                spinner.style.display = 'none';
+            }
+        }
+        
+        function displayResults(data) {
+            // Display metrics
+            const metricsGrid = document.getElementById('metricsGrid');
+            metricsGrid.innerHTML = `
+                <div class="metric-card">
+                    <div class="label">R² Score</div>
+                    <div class="value">${data.metrics.r2.toFixed(4)}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="label">MAE (kW)</div>
+                    <div class="value">${data.metrics.mae.toFixed(2)}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="label">RMSE (kW)</div>
+                    <div class="value">${data.metrics.rmse.toFixed(2)}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="label">Coverage</div>
+                    <div class="value">${data.metrics.coverage.toFixed(1)}%</div>
+                </div>
+            `;
+            
+            // Display model info
+            const modelInfo = document.getElementById('modelInfo');
+            let infoHtml = `
+                <p><strong>Model Type:</strong> ${data.model_info.type}</p>
+                <p><strong>Training Samples:</strong> ${data.data_info.train_samples.toLocaleString()}</p>
+                <p><strong>Test Samples:</strong> ${data.data_info.test_samples.toLocaleString()}</p>
+                <p><strong>Features:</strong> ${data.data_info.features.length}</p>
+            `;
+            
+            if (data.model_info.use_dynamic) {
+                infoHtml += `
+                    <p><strong>Peak Hours:</strong> ${data.model_info.peak_hours}</p>
+                    <p><strong>Peak Quantile:</strong> ${(data.model_info.peak_quantile * 100).toFixed(0)}th percentile</p>
+                    <p><strong>Off-Peak Quantile:</strong> ${(data.model_info.offpeak_quantile * 100).toFixed(0)}th percentile</p>
+                `;
+            } else {
+                infoHtml += `<p><strong>Quantile:</strong> ${(data.model_info.quantile * 100).toFixed(0)}th percentile</p>`;
+            }
+            
+            modelInfo.innerHTML = infoHtml;
+            
+            // Create chart
+            createChart(data.predictions);
+            
+            // Create table (first 48 entries)
+            createTable(data.predictions.slice(0, 48));
+            
+            // Show results
+            document.getElementById('resultsContainer').style.display = 'block';
+        }
+        
+        function createChart(predictions) {
+            const ctx = document.getElementById('predictionChart').getContext('2d');
+            
+            if (chart) {
+                chart.destroy();
+            }
+            
+            // Take first 168 points (1 week if hourly)
+            const data = predictions.slice(0, 168);
+            
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.map(p => new Date(p.timestamp).toLocaleString()),
+                    datasets: [
+                        {
+                            label: 'Actual',
+                            data: data.map(p => p.actual),
+                            borderColor: '#333',
+                            backgroundColor: 'rgba(51, 51, 51, 0.1)',
+                            borderWidth: 2,
+                            pointRadius: 2
+                        },
+                        {
+                            label: 'Predicted',
+                            data: data.map(p => p.predicted),
+                            borderColor: '#667eea',
+                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                            borderWidth: 2,
+                            pointRadius: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Power (kW)'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                maxRotation: 45,
+                                minRotation: 45
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function createTable(predictions) {
+            const tbody = document.getElementById('predictionTableBody');
+            tbody.innerHTML = predictions.map(p => {
+                const diff = p.predicted - p.actual;
+                const diffClass = diff >= 0 ? 'positive' : 'negative';
+                return `
+                    <tr>
+                        <td>${new Date(p.timestamp).toLocaleString()}</td>
+                        <td>${p.predicted.toFixed(2)}</td>
+                        <td>${p.actual.toFixed(2)}</td>
+                        <td style="color: ${diff >= 0 ? '#28a745' : '#dc3545'}">${diff >= 0 ? '+' : ''}${diff.toFixed(2)}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+        
+        function showStatus(message, type) {
+            const status = document.getElementById('statusMessage');
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.style.display = 'block';
+        }
+        
+        function hideStatus() {
+            document.getElementById('statusMessage').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
